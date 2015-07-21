@@ -22,6 +22,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 /**
@@ -30,6 +31,13 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 public class SimpleMQTTCallback implements MqttCallback {
 
     private static final Log log = LogFactory.getLog(SimpleMQTTCallback.class);
+
+    int tempMsgCount = 0;
+    int messageCountPerCalculation = 1000;
+
+    long start;
+    long timeDurationInSeconds;
+    long end;
 
     /**
      * Inform when connection with server is lost.
@@ -50,8 +58,34 @@ public class SimpleMQTTCallback implements MqttCallback {
      */
     @Override
     public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+        calculateSubscriberTPS(mqttMessage);
         log.info("Message arrived on topic : \"" + topic + "\" Message : \"" +
                  mqttMessage.toString() + "\"");
+    }
+
+
+    private void calculateSubscriberTPS(MqttMessage mqttMessage) {
+
+        tempMsgCount ++;
+        if (tempMsgCount == 1) {
+            start = System.currentTimeMillis();
+            log.info("===========================================================================");
+            log.info("TPS Calculation started on Msg :" + mqttMessage.toString() );
+            log.info("===========================================================================");
+
+        }
+        if(tempMsgCount == messageCountPerCalculation) {
+            end = System.currentTimeMillis();
+            timeDurationInSeconds = ((end - start) / 1000); // convert time duration to seconds
+
+
+            log.info("===========================================================================");
+            log.info("TPS Calculation ended on Msg :" + mqttMessage.toString() );
+            log.info("Subscriber TPS : " + (messageCountPerCalculation/timeDurationInSeconds) );
+            log.info("===========================================================================");
+
+            tempMsgCount = 0;
+        }
     }
 
     /**
@@ -63,7 +97,34 @@ public class SimpleMQTTCallback implements MqttCallback {
     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
 
         for (String topic : iMqttDeliveryToken.getTopics()) {
+            calculatePublisherTPS();
             log.info("Message delivered successfully to topic : \"" + topic + "\".");
         }
+
+
     }
+
+
+    private void calculatePublisherTPS() {
+
+        tempMsgCount ++;
+        if (tempMsgCount == 1) {
+            start = System.currentTimeMillis();
+        }
+        if(tempMsgCount == messageCountPerCalculation) {
+            end = System.currentTimeMillis();
+            timeDurationInSeconds = ((end - start) / 1000); // convert time duration to seconds
+
+            log.info("===========================================================================");
+            log.info("Publisher TPS : " + (messageCountPerCalculation/timeDurationInSeconds));
+            log.info("===========================================================================");
+
+
+            tempMsgCount = 0;
+        }
+    }
+
+
+
+
 }
